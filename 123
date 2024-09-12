@@ -1,0 +1,62 @@
+import numpy as np
+import pandas as pd
+import yfinance as yf
+import matplotlib.pyplot as plt
+import datetime as dt
+
+portfolio_data = pd.read_excel('Book1')
+
+ticker = portfolio_data['Ticker'].tolist()
+weight = portfolio_data['Allocations'].values
+initial_value_data = pd.read_excel('/Users/kishansingh/Downloads', sheet_name='Sheet 5', usecols='O', skiprows=4, nrows=1)
+portfolio_value = initial_value_data.values[0][0]
+data = yf.download(tickers, start='2014-01-01', end=dt.datetime.now())['Adj Close']
+
+returns = data.pct_change()
+
+
+num_simulations = 10
+num_days = 252  
+
+mean_returns = returns.mean()
+cov_matrix = returns.cov()
+
+portfolio_value = 100000
+
+simulation_results = np.zeros((num_days, num_simulations))
+portfolio_highs = []
+portfolio_lows = []
+
+for i in range(num_simulations):
+    daily_returns = np.random.multivariate_normal(mean_returns, cov_matrix, num_days)
+    cumulative_returns = np.cumprod(np.dot(daily_returns, weights) + 1)
+    portfolio_values = portfolio_value * cumulative_returns
+    simulation_results[:, i] = portfolio_value * cumulative_returns
+    portfolio_highs.append(np.max(portfolio_values))
+    portfolio_lows.append(np.min(portfolio_values))
+
+plt.figure(figsize=(10, 6))
+plt.plot(simulation_results)
+plt.title('Monte Carlo Simulation of Portfolio Returns')
+plt.xlabel('Days')
+plt.ylabel('Portfolio Value')
+plt.show() 
+
+end_results = simulation_results[-1, :]
+mean_ending_value = np.mean(end_results)
+median_ending_value = np.median(end_results)
+min_ending_value = np.min(end_results)
+max_ending_value = np.max(end_results)
+std_deviation = np.std(end_results)
+
+overall_high = np.max(portfolio_highs)
+overall_low = np.min(portfolio_lows)
+
+print(f"Mean ending portfolio value: ${mean_ending_value:,.2f}")
+print(f"Median ending portfolio value: ${median_ending_value:,.2f}")
+print(f"Minimum ending portfolio value: ${min_ending_value:,.2f}")
+print(f"Maximum ending portfolio value: ${max_ending_value:,.2f}")
+print(f"Standard deviation: ${std_deviation:,.2f}")
+print(f"52-week high (across simulations): ${overall_high:,.2f}")
+print(f"52-week low (across simulations): ${overall_low:,.2f}")
+
