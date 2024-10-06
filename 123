@@ -1,62 +1,53 @@
 import numpy as np
-import pandas as pd
-import yfinance as yf
-import matplotlib.pyplot as plt
-import datetime as dt
 
-portfolio_data = pd.read_excel('Book1')
+# Monte Carlo simulation for E-mini S&P 500 Futures
+def monte_carlo_esp500(S0, T, r, sigma, N_simulations, N_steps, multiplier=50):
+    """
+    S0 : float : Current price of the underlying asset (S&P 500 index level)
+    T : float : Time to maturity (in years)
+    r : float : Risk-free interest rate
+    sigma : float : Volatility of the asset (S&P 500 index)
+    N_simulations : int : Number of Monte Carlo simulations
+    N_steps : int : Number of steps in each simulation (time intervals)
+    multiplier : int : Contract multiplier for E-mini S&P 500 futures (default is 50)
 
-ticker = portfolio_data['Ticker'].tolist()
-weight = portfolio_data['Allocations'].values
-initial_value_data = pd.read_excel('/Users/kishansingh/Downloads', sheet_name='Sheet 5', usecols='O', skiprows=4, nrows=1)
-portfolio_value = initial_value_data.values[0][0]
-data = yf.download(tickers, start='2014-01-01', end=dt.datetime.now())['Adj Close']
+    Returns:
+    float : Expected futures price at maturity
+    float : Standard deviation of futures prices at maturity
+    """
 
-returns = data.pct_change()
+    dt = T / N_steps  # Time step
+    futures_prices = np.zeros((N_simulations, N_steps + 1))
+    futures_prices[:, 0] = S0  # Initialize the first column to be the current S&P 500 price
 
+    # Simulate price paths using geometric Brownian motion (GBM)
+    for t in range(1, N_steps + 1):
+        Z = np.random.standard_normal(N_simulations)  # Generate random normal numbers
+        futures_prices[:, t] = futures_prices[:, t-1] * np.exp((r - 0.5 * sigma ** 2) * dt + sigma * np.sqrt(dt) * Z)
 
-num_simulations = 10
-num_days = 252  
+    # Get the futures price at maturity (last column)
+    futures_prices_at_maturity = futures_prices[:, -1]
 
-mean_returns = returns.mean()
-cov_matrix = returns.cov()
+    # Convert futures prices to contract values using the multiplier
+    futures_contract_values = futures_prices_at_maturity * multiplier
 
-portfolio_value = 100000
+    # Calculate expected futures price and its standard deviation
+    expected_futures_price = np.mean(futures_contract_values)
+    std_futures_price = np.std(futures_contract_values)
 
-simulation_results = np.zeros((num_days, num_simulations))
-portfolio_highs = []
-portfolio_lows = []
+    return expected_futures_price, std_futures_price
 
-for i in range(num_simulations):
-    daily_returns = np.random.multivariate_normal(mean_returns, cov_matrix, num_days)
-    cumulative_returns = np.cumprod(np.dot(daily_returns, weights) + 1)
-    portfolio_values = portfolio_value * cumulative_returns
-    simulation_results[:, i] = portfolio_value * cumulative_returns
-    portfolio_highs.append(np.max(portfolio_values))
-    portfolio_lows.append(np.min(portfolio_values))
+# Parameters for E-mini S&P 500 Futures
+S0 = 4400  # Current S&P 500 index level (Example value, adjust to current value)
+T = 1  # Time to maturity (1 year)
+r = 0.03  # Risk-free interest rate (3%)
+sigma = 0.18  # Volatility (18%, adjust based on historical data)
+N_simulations = 10000  # Number of simulations
+N_steps = 252  # Number of time steps (daily)
 
-plt.figure(figsize=(10, 6))
-plt.plot(simulation_results)
-plt.title('Monte Carlo Simulation of Portfolio Returns')
-plt.xlabel('Days')
-plt.ylabel('Portfolio Value')
-plt.show() 
+# Run the Monte Carlo simulation
+expected_futures_price, std_futures_price = monte_carlo_esp500(S0, T, r, sigma, N_simulations, N_steps)
 
-end_results = simulation_results[-1, :]
-mean_ending_value = np.mean(end_results)
-median_ending_value = np.median(end_results)
-min_ending_value = np.min(end_results)
-max_ending_value = np.max(end_results)
-std_deviation = np.std(end_results)
-
-overall_high = np.max(portfolio_highs)
-overall_low = np.min(portfolio_lows)
-
-print(f"Mean ending portfolio value: ${mean_ending_value:,.2f}")
-print(f"Median ending portfolio value: ${median_ending_value:,.2f}")
-print(f"Minimum ending portfolio value: ${min_ending_value:,.2f}")
-print(f"Maximum ending portfolio value: ${max_ending_value:,.2f}")
-print(f"Standard deviation: ${std_deviation:,.2f}")
-print(f"52-week high (across simulations): ${overall_high:,.2f}")
-print(f"52-week low (across simulations): ${overall_low:,.2f}")
-
+# Output the results
+print(f"Expected E-mini S&P 500 Futures Price at Maturity: ${expected_futures_price:.2f}")
+print(f"Standard Deviation of Futures Prices at Maturity: ${std_futures_price:.2f}")
